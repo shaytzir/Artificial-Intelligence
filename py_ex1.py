@@ -1,4 +1,4 @@
-from Queue import Queue, PriorityQueue
+from Queue import Queue
 from copy import deepcopy
 
 
