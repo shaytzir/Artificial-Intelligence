@@ -1,6 +1,6 @@
 from Queue import Queue
 from copy import deepcopy
-
+import heapq
 
 class State:
     """""
@@ -25,9 +25,14 @@ class State:
                 if element=='0':
                     self.free_row = i
                     self.free_col = j
-        self.cost = None
+        self.g = None
+        self.h = None
         self.move_to_get_here = None
         self.father_state = None
+
+    @property
+    def f(self):
+        return self.g + self.h
 
     def set_father(self, father_state):
         """"
@@ -128,6 +133,23 @@ class TileBoard:
         getter of the goal state
         """
         return self.goal_state
+
+    def manhattan_dis(self,state):
+        sum = 0
+        for i in range(1,(self.size**2)-1):
+            index_in_goal = i-1
+            cur_row = 0
+            for row in state.get_state_mat():
+                try:
+                    cur_col = row.index(str(i))
+                    break
+                except:
+                    cur_col = None
+                    cur_row+=1
+
+            goal_row,goal_col = int(index_in_goal / self.size), index_in_goal % self.size
+            sum += abs(goal_row-cur_row) + abs(goal_col-cur_col)
+        return sum
 
 
     def get_possible_states(self, state):
@@ -256,6 +278,29 @@ class BFS_Algorithm(Algorithm):
         return trace, self.num_of_vertexes,0
 
 
+class AStar_Algorithm(Algorithm):
+    def search(self):
+        open_queue = []
+        initial_state = self.board.get_initial_state()
+        initial_state.g = 0
+        initial_state.h = self.board.manhattan_dis(initial_state)
+        heapq.heappush(open_queue,(initial_state.f, initial_state))
+        while open_queue:
+            #pops a tuple of priority and the state itself
+            state = heapq.heappop(open_queue)[1]
+            self.num_of_vertexes += 1
+            if state == self.board.get_goal_state():
+                return state.get_trace(), self.num_of_vertexes, state.g
+            for node in self.board.get_possible_states(state):
+                node.g = state.g + 1
+                node.h = self.board.manhattan_dis(node)
+                node.set_father(state)
+                heapq.heappush(open_queue,(node.f, node))
+
+
+
+
+
 class IDS_Algorithm(Algorithm):
     """
     implements the ids algorithm. the search function calls for a
@@ -306,7 +351,7 @@ def main():
     elif alg == 2:
         result = BFS_Algorithm(board).search()
     else:
-        print "should run Astar"
+        result = AStar_Algorithm(board).search()
 
     manager.print_to_file(result[0],result[1],result[2])
 
