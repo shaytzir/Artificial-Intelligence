@@ -1,6 +1,5 @@
 from Queue import Queue
 from copy import deepcopy
-import heapq
 
 class State:
     """""
@@ -15,16 +14,16 @@ class State:
         """
         self.mat_state = state
         self.str_state = ""
-        self.size = int(len(self.mat_state))
         self.free_row=0
         self.free_col=0
-        for i in range(self.size):
-            for j in range(self.size):
-                element = self.mat_state[i][j]
-                self.str_state += element
-                if element=='0':
-                    self.free_row = i
-                    self.free_col = j
+        for row_index in self.mat_state:
+            str = "".join(row_index)
+            self.str_state += str
+            try:
+                self.free_col = row_index.index('0')
+                break
+            except:
+                self.free_row += 1
         self.g = None
         self.h = None
         self.move_to_get_here = None
@@ -33,6 +32,9 @@ class State:
     @property
     def f(self):
         return self.g + self.h
+
+    def __lt__(self, other):
+        return self.f < other.f
 
     def set_father(self, father_state):
         """"
@@ -136,7 +138,7 @@ class TileBoard:
 
     def manhattan_dis(self,state):
         sum = 0
-        for i in range(1,(self.size**2)-1):
+        for i in range(1,self.size**2):
             index_in_goal = i-1
             cur_row = 0
             for row in state.get_state_mat():
@@ -195,6 +197,9 @@ class TileBoard:
             possible_states.append(right_state)
         return possible_states
 
+    def search(self,algorithm):
+        return algorithm.search(self.ini)
+
 
 
 class Files_Manager:
@@ -245,6 +250,8 @@ class Algorithm(object):
         """
         self.num_of_vertexes = 0
         self.board = board
+        self.initial_state = self.board.get_initial_state()
+        self.goal_state = self.board.get_goal_state()
 
     def search(self):
         """
@@ -264,11 +271,11 @@ class BFS_Algorithm(Algorithm):
         implements the bfs search algorithm using queue
         """
         open_q = Queue()
-        open_q.put(self.board.get_initial_state())
+        open_q.put(self.initial_state)
         while not(open_q.empty()):
             node = open_q.get()
             self.num_of_vertexes += 1
-            if node == self.board.get_goal_state():
+            if node == self.goal_state:
                 trace = node.get_trace()
                 break
             successors = self.board.get_possible_states(node)
@@ -280,22 +287,23 @@ class BFS_Algorithm(Algorithm):
 
 class AStar_Algorithm(Algorithm):
     def search(self):
+        import heapq
         open_queue = []
-        initial_state = self.board.get_initial_state()
+        initial_state = self.initial_state
         initial_state.g = 0
         initial_state.h = self.board.manhattan_dis(initial_state)
-        heapq.heappush(open_queue,(initial_state.f, initial_state))
+        heapq.heappush(open_queue,initial_state)
         while open_queue:
-            #pops a tuple of priority and the state itself
-            state = heapq.heappop(open_queue)[1]
+            state = heapq.heappop(open_queue)
             self.num_of_vertexes += 1
-            if state == self.board.get_goal_state():
+            if state == self.goal_state:
                 return state.get_trace(), self.num_of_vertexes, state.g
             for node in self.board.get_possible_states(state):
                 node.g = state.g + 1
                 node.h = self.board.manhattan_dis(node)
                 node.set_father(state)
-                heapq.heappush(open_queue,(node.f, node))
+                heapq.heappush(open_queue,node)
+
 
 
 
