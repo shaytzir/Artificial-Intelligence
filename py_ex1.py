@@ -281,7 +281,6 @@ class AStar_Algorithm(Algorithm):
         state_id += 1
         while open_queue:
             state = heappop(open_queue)[2]
-            print (state.str + " it's f is: " + str(state.f))
             self.num_of_vertexes += 1
             if state == self.goal_state:
                 return state.trace(), self.num_of_vertexes, state.g
