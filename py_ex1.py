@@ -14,34 +14,33 @@ class State:
         self.free_space = self.state_arr.index('0')
         self.g = None
         self.h = None
-        #self.id = None
         self.move_to_get_here = None
         self.father_state = None
 
     @property
     def f(self):
+        """"
+        returns the heuristic value of this node + it's depth
+        """
         return self.g + self.h
 
-    """"
-    def __lt__(self, other):
-        if self.f < other.f:
-            return True
-        elif other.f < self.f:
-            return  False
-        else:
-            return self.id < other.id
-    """
 
     @property
     def str(self):
-        return ",".join(self.state_arr)
+        """
+        return string represtation of this node
+        """
+        return "-".join(self.state_arr)
 
     def arr(self):
+        """"
+        returns the array of this node
+        """
         return self.state_arr
 
 
     def set_father(self, father_state):
-        """"
+        """
         setting a father state for this current state,
         updating the required direction to get the current
         state from it's father
@@ -49,6 +48,9 @@ class State:
         self.father_state = father_state
 
     def set_move_to_get_here(self,move):
+        """
+        setting which operator is required to get to this node
+        """
         self.move_to_get_here = move
 
     def trace(self):
@@ -81,7 +83,6 @@ class State:
         return self.free_space
 
 
-
 class TileBoard:
     """
     the class represents the game itself, keeping the initial and goal states
@@ -112,9 +113,17 @@ class TileBoard:
         return self.goal_state
 
     def get_mat_position(self, list_index):
+        """
+        returns 2D indices of a 1D index by the board size
+        """
         return int(list_index / self.size), list_index % self.size
 
     def manhattan_dis(self,state_arr):
+        """
+        calcs the manhattan distance of the entire board
+        :param state_arr:  the array of the node
+        :return: the sum of all manhattan distances - the heuristic func
+        """
         summ = 0
         i = 0
         for place in state_arr:
@@ -124,7 +133,6 @@ class TileBoard:
                 summ += abs(goal_row - cur_row) + abs(goal_col - cur_col)
             i += 1
         return summ
-
 
     def get_possible_states(self, state):
         """
@@ -254,18 +262,26 @@ class BFS_Algorithm(Algorithm):
 
 
 class AStar_Algorithm(Algorithm):
+    """
+    class of the A* algorithm. implement the search func
+    finding the goal node using a heuristic func and the nodes depth
+    """
     def search(self):
+        """
+        runs the A* algorithm as required. pops from queue the lowest f value
+        if there are some with equal f - pops by order of creation and given operators order
+        """
         from heapq import heappop, heappush
         state_id = 0
         open_queue = []
         initial_state = self.initial_state
         initial_state.g = 0
         initial_state.h = self.board.manhattan_dis(initial_state.arr())
-  #      initial_state.id = state_id
         heappush(open_queue,(initial_state.f, 0, initial_state))
         state_id += 1
         while open_queue:
             state = heappop(open_queue)[2]
+            print (state.str + " it's f is: " + str(state.f))
             self.num_of_vertexes += 1
             if state == self.goal_state:
                 return state.trace(), self.num_of_vertexes, state.g
@@ -273,11 +289,8 @@ class AStar_Algorithm(Algorithm):
             for node in successors:
                 node.g = state.g + 1
                 node.h = self.board.manhattan_dis(node.arr())
-               # node.id = state_id                    node.set_father(state)
                 heappush(open_queue, (node.f, state_id,node))
                 state_id += 1
-
-
 
 
 class IDS_Algorithm(Algorithm):
@@ -320,8 +333,10 @@ class IDS_Algorithm(Algorithm):
         return None
 
 
-
 def main():
+    """
+    the main function of the code
+    """
     manager = Files_Manager()
     [alg, size, arr] = manager.get_params()
     board = TileBoard(size, arr)
