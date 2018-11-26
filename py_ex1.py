@@ -1,6 +1,4 @@
-from Queue import Queue
-from copy import deepcopy
-
+import queue
 class State:
     """""
     This class represents a "state" type. it keeps information
@@ -8,24 +6,15 @@ class State:
     father state, which direction needed to get here from father state
     in some cases will use cost for Astar for example
     """
-    def __init__(self, state):
+    def __init__(self, state_arr):
         """"
         constructor. finding which indices are of '0'
         """
-        self.mat_state = state
-        self.str_state = ""
-        self.free_row=0
-        self.free_col=0
-        for row_index in self.mat_state:
-            str = "".join(row_index)
-            self.str_state += str
-            try:
-                self.free_col = row_index.index('0')
-                break
-            except:
-                self.free_row += 1
+        self.state_arr = state_arr
+        self.free_space = self.state_arr.index('0')
         self.g = None
         self.h = None
+        #self.id = None
         self.move_to_get_here = None
         self.father_state = None
 
@@ -33,8 +22,23 @@ class State:
     def f(self):
         return self.g + self.h
 
+    """"
     def __lt__(self, other):
-        return self.f < other.f
+        if self.f < other.f:
+            return True
+        elif other.f < self.f:
+            return  False
+        else:
+            return self.id < other.id
+    """
+
+    @property
+    def str(self):
+        return ",".join(self.state_arr)
+
+    def arr(self):
+        return self.state_arr
+
 
     def set_father(self, father_state):
         """"
@@ -43,34 +47,19 @@ class State:
         state from it's father
         """
         self.father_state = father_state
-        [father_row,father_col] = father_state.get_free_spot()
-        [row_diff, col_diff] = [father_row - self.free_row,father_col - self.free_col]
-        if row_diff == -1:
-            self.move_to_get_here = 'U'
-        elif row_diff == 1:
-            self.move_to_get_here = 'D'
-        elif col_diff == -1:
-            self.move_to_get_here = 'L'
-        else:
-            self.move_to_get_here = 'R'
 
-    def set_cost(self, cost):
-        """"
-        setter. the cost of this state
-        """
-        self.cost = cost
+    def set_move_to_get_here(self,move):
+        self.move_to_get_here = move
 
-    def get_state_str(self):
+    def trace(self):
         """
-        getter of this state's string. returns the matrix values in a row
+        gets the full trace of getting from the initial state to this one
         """
-        return self.str_state
-
-    def get_state_mat(self):
-        """
-        returns a copy of this state's matrix
-        """
-        return deepcopy(self.mat_state)
+        if self.father_state is None:
+            return ""
+        #   return it backwards, first find my
+        #  father trace and add the last move
+        return ""+self.father_state.trace()+self.move_to_get_here
 
     def __eq__(self, state):
         """
@@ -79,7 +68,9 @@ class State:
         if state is None:
             return False
         #if they share the same string
-        if state.get_state_str() == self.get_state_str():
+        other = state.str
+        mine = self.str
+        if state.str == self.str:
             return True
         return False
 
@@ -87,17 +78,8 @@ class State:
         """
         getter of the free space indices
         """
-        return [self.free_row, self.free_col]
+        return self.free_space
 
-    def get_trace(self):
-        """
-        gets the full trace of getting from the initial state to this one
-        """
-        if self.father_state is None:
-            return ""
-        #   return it backwards, first find my
-        #  father trace and add the last move
-        return ""+self.father_state.get_trace()+self.move_to_get_here
 
 
 class TileBoard:
@@ -112,17 +94,10 @@ class TileBoard:
          out of the given board size
         """
         self.size = int(board_size)
-        initial_mat = [[0 for x in range(self.size)] for y in range(self.size)]
-        goal_mat = [[0 for x in range(self.size)] for y in range(self.size)]
-        index = 0
-        for i in range(self.size):
-            for j in range(self.size):
-                initial_mat[i][j] = initial_arr[index]
-                index += 1
-                goal_mat[i][j] = str(index)
-        goal_mat[self.size-1][self.size-1] = str(0)
-        self.initial_state = State(initial_mat)
-        self.goal_state = State(goal_mat)
+        goal_arr = [str(element) for element in range(1, self.size**2)]
+        goal_arr.append('0')
+        self.initial_state = State(initial_arr)
+        self.goal_state = State(goal_arr)
 
     def get_initial_state(self):
         """
@@ -136,22 +111,19 @@ class TileBoard:
         """
         return self.goal_state
 
-    def manhattan_dis(self,state):
-        sum = 0
-        for i in range(1,self.size**2):
-            index_in_goal = i-1
-            cur_row = 0
-            for row in state.get_state_mat():
-                try:
-                    cur_col = row.index(str(i))
-                    break
-                except:
-                    cur_col = None
-                    cur_row+=1
+    def get_mat_position(self, list_index):
+        return int(list_index / self.size), list_index % self.size
 
-            goal_row,goal_col = int(index_in_goal / self.size), index_in_goal % self.size
-            sum += abs(goal_row-cur_row) + abs(goal_col-cur_col)
-        return sum
+    def manhattan_dis(self,state_arr):
+        summ = 0
+        i = 0
+        for place in state_arr:
+            if not(place=='0'):
+                goal_row, goal_col = self.get_mat_position(int(place)-1)
+                cur_row, cur_col = self.get_mat_position(i)
+                summ += abs(goal_row - cur_row) + abs(goal_col - cur_col)
+            i += 1
+        return summ
 
 
     def get_possible_states(self, state):
@@ -160,45 +132,49 @@ class TileBoard:
         creates the states list in this order (if exists):
         up,down,left,right
         """
-        row, col = state.get_free_spot()
-        row = int(row)
-        col = int(col)
+        index = state.get_free_spot()
+        row, col = self.get_mat_position(index)
         possible_states = []
         # gets a copy of the given state
-        original = state.get_state_mat()
-        up = deepcopy(original)
-        down = deepcopy(original)
-        left = deepcopy(original)
-        right = deepcopy(original)
-        size = len(original)
+        original = state.state_arr
+        size = self.size
         blank = '0'
         # creating up to 4 different states if possible
         # by replacing the blank spot in the original state
         # with the relevant spot: upper, lower,left,right
         if row != size-1:
-            up[row][col] = original[row+1][col]
-            up[row + 1][col] = blank
-            up_state = State(up)
+            up_arr = list(original)
+            up_arr[index] = up_arr[index + size]
+            up_arr[index + size] = blank
+            up_state = State(up_arr)
+            up_state.set_father(state)
+            up_state.set_move_to_get_here('U')
             possible_states.append(up_state)
         if row != 0:
-            down[row][col] = original[row-1][col]
-            down[row - 1][col] = blank
-            down_state = State(down)
+            down_arr = list(original)
+            down_arr[index] = down_arr [index - size]
+            down_arr[index - size] = blank
+            down_state = State(down_arr)
+            down_state.set_father(state)
+            down_state.set_move_to_get_here('D')
             possible_states.append(down_state)
         if col != size-1:
-            left[row][col] = original[row][col+1]
-            left[row][col + 1] = blank
-            left_state = State(left)
+            left_arr= list(original)
+            left_arr[index] = left_arr[index+1]
+            left_arr[index+1] = blank
+            left_state = State(left_arr)
+            left_state.set_father(state)
+            left_state.set_move_to_get_here('L')
             possible_states.append(left_state)
         if col != 0:
-            right[row][col] = original[row][col-1]
-            right[row][col-1] = blank
-            right_state = State(right)
+            right_arr= list(original)
+            right_arr[index] = right_arr[index-1]
+            right_arr[index-1] = blank
+            right_state = State(right_arr)
+            right_state.set_father(state)
+            right_state.set_move_to_get_here('R')
             possible_states.append(right_state)
         return possible_states
-
-    def search(self,algorithm):
-        return algorithm.search(self.ini)
 
 
 
@@ -208,24 +184,17 @@ class Files_Manager:
     in it's constructor it opens the file and has another method responsible
     to return all the params
     """
-    def __init__(self):
-        """
-        opens the input file
-        """
-        self.file = open('input.txt')
-        self.size = None
-        self.algorithm = None
-        self.initial_state_arr = None
 
     def get_params(self):
         """
         reads the input file and returns the parameters to the main method
         """
-        self.algorithm = self.file.readline().split('\n')[0]
-        self.size = self.file.readline().split('\n')[0]
-        self.initial_state_arr = self.file.readline().split('\n')[0].split('-')
-        self.file.close()
-        return int(self.algorithm),self.size,self.initial_state_arr
+        file = open('input.txt')
+        algorithm = file.readline().split('\n')[0]
+        size = file.readline().split('\n')[0]
+        initial_state_arr = file.readline().split('\n')[0].split('-')
+        file.close()
+        return int(algorithm),size,initial_state_arr
 
     def print_to_file(self, trace, vertex_num, third_param):
         """
@@ -270,41 +239,43 @@ class BFS_Algorithm(Algorithm):
         """
         implements the bfs search algorithm using queue
         """
-        open_q = Queue()
+        open_q = queue.Queue()
         open_q.put(self.initial_state)
         while not(open_q.empty()):
             node = open_q.get()
             self.num_of_vertexes += 1
             if node == self.goal_state:
-                trace = node.get_trace()
+                trace = node.trace()
                 break
             successors = self.board.get_possible_states(node)
             for state in successors:
-                state.set_father(node)
                 open_q.put(state)
         return trace, self.num_of_vertexes,0
 
 
 class AStar_Algorithm(Algorithm):
     def search(self):
-        import heapq
+        from heapq import heappop, heappush
+        state_id = 0
         open_queue = []
         initial_state = self.initial_state
         initial_state.g = 0
-        initial_state.h = self.board.manhattan_dis(initial_state)
-        heapq.heappush(open_queue,initial_state)
+        initial_state.h = self.board.manhattan_dis(initial_state.arr())
+  #      initial_state.id = state_id
+        heappush(open_queue,(initial_state.f, 0, initial_state))
+        state_id += 1
         while open_queue:
-            state = heapq.heappop(open_queue)
+            state = heappop(open_queue)[2]
             self.num_of_vertexes += 1
             if state == self.goal_state:
-                return state.get_trace(), self.num_of_vertexes, state.g
-            for node in self.board.get_possible_states(state):
+                return state.trace(), self.num_of_vertexes, state.g
+            successors = self.board.get_possible_states(state)
+            for node in successors:
                 node.g = state.g + 1
-                node.h = self.board.manhattan_dis(node)
-                node.set_father(state)
-                heapq.heappush(open_queue,node)
-
-
+                node.h = self.board.manhattan_dis(node.arr())
+               # node.id = state_id                    node.set_father(state)
+                heappush(open_queue, (node.f, state_id,node))
+                state_id += 1
 
 
 
@@ -327,7 +298,7 @@ class IDS_Algorithm(Algorithm):
             self.num_of_vertexes = 0
             goal = self.DFS_With_Limit(node_to_start_from, limit, self.num_of_vertexes)
             limit += 1
-        return goal.get_trace(), self.num_of_vertexes, limit-1
+        return goal.trace(), self.num_of_vertexes, limit-1
 
     def DFS_With_Limit(self, start, limit, nodes_developed):
         """"
